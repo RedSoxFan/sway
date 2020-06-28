@@ -624,6 +624,7 @@ static void handle_modifier_event(struct sway_keyboard *keyboard) {
 	if (wlr_device->keyboard->modifiers.group != keyboard->effective_layout &&
 			!wlr_keyboard_group_from_wlr_keyboard(wlr_device->keyboard)) {
 		keyboard->effective_layout = wlr_device->keyboard->modifiers.group;
+		input_config_store_layout_index(wlr_device);
 		ipc_event_input("xkb_layout", keyboard->seat_device->input_device);
 	}
 }
@@ -951,7 +952,8 @@ void sway_keyboard_configure(struct sway_keyboard *keyboard) {
 		}
 	}
 
-	bool keymap_changed = keyboard->keymap ?
+	bool had_keymap = keyboard->keymap != NULL;
+	bool keymap_changed = had_keymap ?
 		!wlr_keyboard_keymaps_match(keyboard->keymap, keymap) : true;
 	bool effective_layout_changed = keyboard->effective_layout != 0;
 
@@ -970,9 +972,16 @@ void sway_keyboard_configure(struct sway_keyboard *keyboard) {
 	if (keymap_changed || repeat_info_changed || config->reloading) {
 		xkb_keymap_unref(keyboard->keymap);
 		keyboard->keymap = keymap;
-		keyboard->effective_layout = 0;
 		keyboard->repeat_rate = repeat_rate;
 		keyboard->repeat_delay = repeat_delay;
+
+		keyboard->effective_layout = 0;
+		if ((!had_keymap || !keymap_changed) && input_config &&
+				input_config->xkb_layout_index < xkb_keymap_num_layouts(keymap)) {
+			keyboard->effective_layout = input_config->xkb_layout_index;
+		} else {
+			input_config_store_layout_index(wlr_device);
+		}
 
 		sway_keyboard_group_remove_invalid(keyboard);
 
@@ -1001,7 +1010,7 @@ void sway_keyboard_configure(struct sway_keyboard *keyboard) {
 		}
 		if (locked_mods) {
 			wlr_keyboard_notify_modifiers(wlr_device->keyboard, 0, 0,
-					locked_mods, 0);
+					locked_mods, keyboard->effective_layout);
 			uint32_t leds = 0;
 			for (uint32_t i = 0; i < WLR_LED_COUNT; ++i) {
 				if (xkb_state_led_index_is_active(
@@ -1016,6 +1025,12 @@ void sway_keyboard_configure(struct sway_keyboard *keyboard) {
 			} else {
 				wlr_keyboard_led_update(wlr_device->keyboard, leds);
 			}
+		} else {
+			wlr_keyboard_notify_modifiers(wlr_device->keyboard,
+					wlr_device->keyboard->modifiers.depressed,
+					wlr_device->keyboard->modifiers.latched,
+					wlr_device->keyboard->modifiers.locked,
+					keyboard->effective_layout);
 		}
 	} else {
 		xkb_keymap_unref(keymap);

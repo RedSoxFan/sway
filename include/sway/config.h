@@ -6,6 +6,7 @@
 #include <time.h>
 #include <wlr/interfaces/wlr_switch.h>
 #include <wlr/types/wlr_box.h>
+#include <wlr/types/wlr_input_device.h>
 #include <xkbcommon/xkbcommon.h>
 #include "../include/config.h"
 #include "list.h"
@@ -148,6 +149,7 @@ struct input_config {
 	char *xkb_rules;
 	char *xkb_variant;
 	char *xkb_file;
+	xkb_layout_index_t xkb_layout_index;
 
 	bool xkb_file_is_set;
 
@@ -604,6 +606,8 @@ struct input_config *store_input_config(struct input_config *ic, char **error);
 
 void input_config_fill_rule_names(struct input_config *ic,
 		struct xkb_rule_names *rules);
+
+void input_config_store_layout_index(struct wlr_input_device *device);
 
 void free_input_config(struct input_config *ic);
 

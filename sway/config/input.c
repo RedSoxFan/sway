@@ -40,6 +40,7 @@ struct input_config *new_input_config(const char* identifier) {
 	input->xkb_numlock = INT_MIN;
 	input->xkb_capslock = INT_MIN;
 	input->xkb_file_is_set = false;
+	input->xkb_layout_index = UINT_MAX;
 
 	return input;
 }
@@ -104,6 +105,9 @@ void merge_input_config(struct input_config *dst, struct input_config *src) {
 	if (src->xkb_layout) {
 		free(dst->xkb_layout);
 		dst->xkb_layout = strdup(src->xkb_layout);
+	}
+	if (src->xkb_layout_index != UINT_MAX) {
+		dst->xkb_layout_index = src->xkb_layout_index;
 	}
 	if (src->xkb_model) {
 		free(dst->xkb_model);
@@ -365,4 +369,12 @@ int input_identifier_cmp(const void *item, const void *data) {
 	const struct input_config *ic = item;
 	const char *identifier = data;
 	return strcmp(ic->identifier, identifier);
+}
+
+void input_config_store_layout_index(struct wlr_input_device *wlr_device) {
+	char *device_identifier = input_device_get_identifier(wlr_device);
+	struct input_config *ic = new_input_config(device_identifier);
+	ic->xkb_layout_index = wlr_device->keyboard->modifiers.group;
+	store_input_config(ic, NULL);
+	free(device_identifier);
 }

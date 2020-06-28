@@ -5,13 +5,15 @@
 #include "sway/input/input-manager.h"
 #include "log.h"
 
-static void switch_layout(struct wlr_keyboard *kbd, xkb_layout_index_t idx) {
+static void switch_layout(struct wlr_input_device *dev, xkb_layout_index_t idx) {
+	struct wlr_keyboard *kbd = dev->keyboard;
 	xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kbd->keymap);
 	if (idx >= num_layouts) {
 		return;
 	}
 	wlr_keyboard_notify_modifiers(kbd, kbd->modifiers.depressed,
 		kbd->modifiers.latched, kbd->modifiers.locked, idx);
+	input_config_store_layout_index(dev);
 }
 
 static xkb_layout_index_t get_current_layout_index(struct wlr_keyboard *kbd) {
@@ -28,10 +30,11 @@ static xkb_layout_index_t get_current_layout_index(struct wlr_keyboard *kbd) {
 	return layout_idx;
 }
 
-static void switch_layout_relative(struct wlr_keyboard *kbd, int dir) {
+static void switch_layout_relative(struct wlr_input_device *dev, int dir) {
+	struct wlr_keyboard *kbd = dev->keyboard;
 	xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kbd->keymap);
 	xkb_layout_index_t idx = get_current_layout_index(kbd);
-	switch_layout(kbd, (idx + num_layouts + dir) % num_layouts);
+	switch_layout(dev, (idx + num_layouts + dir) % num_layouts);
 }
 
 struct cmd_results *input_cmd_xkb_switch_layout(int argc, char **argv) {
@@ -77,9 +80,9 @@ struct cmd_results *input_cmd_xkb_switch_layout(int argc, char **argv) {
 			continue;
 		}
 		if (relative) {
-			switch_layout_relative(dev->wlr_device->keyboard, relative);
+			switch_layout_relative(dev->wlr_device, relative);
 		} else {
-			switch_layout(dev->wlr_device->keyboard, layout);
+			switch_layout(dev->wlr_device, layout);
 		}
 	}
 
